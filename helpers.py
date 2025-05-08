@@ -52,7 +52,7 @@ def predict_cats(model, dataset) -> dict:
 
 # Function to show model performance evaluation
 def show_evaluation_report(model, dataset: list, filename: str, matrix_title: str) -> None:
-    colors = ["crest", "coolwarm", "Spectral", "flare"]
+    colors = ["crest", "coolwarm", "Spectral", "flare", "Set1", "husl", "Set2", "pastel", "Set3"]
     # Dictionary of true and predicted values from the dataset
     for _set in dataset:
         prediction = predict_cats(model=model, dataset=_set)
