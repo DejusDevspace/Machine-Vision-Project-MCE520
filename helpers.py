@@ -110,6 +110,8 @@ def get_sample_images(dataset, cnames: list, n_samples: int = 5) -> dict:
             break
     return class_images
 
+# --------------- EXPERIMENT 2 SPECIFIC FUNCTIONS --------------- #
+
 # Function to edge preprocess an image: Grayscale -> Blur -> Canny Edge Detection
 def edge_enhanced_preprocessing(
     image_path: str,
@@ -156,3 +158,133 @@ def edge_preprocess_and_save_dataset(input_dir: str, output_dir: str) -> None:
                     save_path = output_class_dir / img_file.name
                     cv2.imwrite(str(save_path), processed)
 
+# --------------- EXPERIMENT 3 SPECIFIC FUNTIONS ---------------#
+
+# Function to extract features from an image
+def extract_shape_features(image_path: str) -> list:
+    image = cv2.imread(str(image_path))
+    image = cv2.resize(image, (256, 256))
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Threshold or Canny to get binary image
+    _, binary = cv2.threshold(gray, 100, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    # Alternatively: binary = cv2.Canny(gray, 100, 200)
+
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    if contours:
+        cnt = max(contours, key=cv2.contourArea)
+        x, y, w, h = cv2.boundingRect(cnt)
+        area = cv2.contourArea(cnt)
+        perimeter = cv2.arcLength(cnt, True)
+        aspect_ratio = w / float(h)
+        rect_area = w * h
+        extent = area / rect_area if rect_area else 0
+        hull = cv2.convexHull(cnt)
+        hull_area = cv2.contourArea(hull)
+        solidity = area / hull_area if hull_area else 0
+
+        return [area, perimeter, aspect_ratio, extent, solidity]
+    else:
+        return [0, 0, 0, 0, 0]  # No contour found
+
+# Function to build a feature dataset with shape extracted features
+def build_feature_dataset(input_dir: str) -> tuple:
+    X, y = [], []
+    class_map = {}
+
+    for i, class_name in enumerate(sorted(os.listdir(input_dir))):
+        class_dir = os.path.join(input_dir, class_name)
+        if not os.path.isdir(class_dir):
+            continue
+        class_map[i] = class_name
+        for file in os.listdir(class_dir):
+            if file.endswith(".jpg"):
+                features = extract_shape_features(os.path.join(class_dir, file))
+                X.append(features)
+                y.append(i)
+
+    return np.array(X), np.array(y), class_map
+
+# Function to preprocess an image to get equalized and contour_overlayed samples
+def preprocess_with_equalization_and_contour(image_path: str) -> dict:
+    image = cv2.imread(str(image_path))
+    image = cv2.resize(image, (256, 256))
+
+    # Grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Histogram Equalization
+    equalized = cv2.equalizeHist(gray)
+
+    # Thresholding (Otsu)
+    _, binary = cv2.threshold(equalized, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+    # Contour Detection
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contour_overlay = cv2.cvtColor(equalized.copy(), cv2.COLOR_GRAY2BGR)  # For drawing in color
+
+    if contours:
+        cv2.drawContours(contour_overlay, contours, -1, (0, 255, 0), 2)
+
+    return {
+        "original": cv2.cvtColor(image, cv2.COLOR_BGR2RGB),
+        "equalized": equalized,
+        "contour_overlay": contour_overlay
+    }
+
+# Function to retrieve preprocessed samples (experiment 3) from the dataset
+def get_preprocessed_samples(input_dir, cnames: list, n_samples: int = 5) -> dict:
+    class_images = {cat: [] for cat in cnames}
+
+    for cname in cnames:
+        folder = os.path.join(input_dir, cname)
+        images = [f for f in os.listdir(folder) if f.endswith(".jpg") or f.endswith(".png")]
+
+        for file in images:
+            path = os.path.join(folder, file)
+            result = preprocess_with_equalization_and_contour(path)
+            class_images[cname].append(result)
+
+            if len(class_images[cname]) >= n_samples:
+                break
+    return class_images
+
+# Function to plot and save preprocessed samples
+def plot_preprocessed_samples(
+    cnames: list,
+    cimages: dict,
+    filename: str,
+    title: str
+) -> None:
+    fig, axes = plt.subplots(len(cnames), 3 * 3, figsize=(12, 4))
+
+    for i, cname in enumerate(cnames):
+        for j in range(3):
+            if j < len(cimages[cname]):
+                sample = cimages[cname][j]
+                col_base = 3 * j
+
+                # Original
+                axes[i, col_base].imshow(sample["original"] / 255.)
+                axes[i, col_base].axis("off")
+                if i == 0:
+                    axes[i, col_base].set_title("Original")
+
+                # Equalized
+                axes[i, col_base + 1].imshow(sample["equalized"], cmap="gray")
+                axes[i, col_base + 1].axis("off")
+                if i == 0:
+                    axes[i, col_base + 1].set_title("Equalized")
+
+                # Contour Overlay
+                axes[i, col_base + 2].imshow(sample["contour_overlay"] / 255.)
+                axes[i, col_base + 2].axis("off")
+                if i == 0:
+                    axes[i, col_base + 2].set_title("Contours")
+
+    plt.tight_layout()
+    plt.suptitle(title, fontsize=16, fontweight="bold")
+    plt.subplots_adjust(top=0.9)
+    plt.savefig(f"./plots/{filename}")
+    plt.show()

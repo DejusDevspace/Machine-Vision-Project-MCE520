@@ -18,8 +18,10 @@ Transfer learning using ResNet50 Pretrained CNN without any data augmentation or
 
 ## Experiment 2
 
+Title: Edge Detection...
 Grayscale + Gaussian Blur + Canny Edge Detection.
 
 ## Experiment 3
 
+Title: Shape Feature Classification via Contour Analysis
 Grayscale → Histogram Equalization → Contour Detection: Use an SVM for classification after preprocessing
