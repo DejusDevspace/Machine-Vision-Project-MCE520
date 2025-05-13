@@ -10,6 +10,7 @@
 - Documentation would be by experiments which would cover different preprocessing techniques.
 - Write (if available) the meaning, effect, and results of each preprocessing technique applied to data - with relevant code snippets.
 - Note what each effect captures...e.g, "the use of x technique helps the model to generalize more to the data and it mimics real-world noise or data variations".
+- Total number of images across the project. Data structure across all the sets (training, test, and val), and number of images per class.
 
 # Experiments
 
